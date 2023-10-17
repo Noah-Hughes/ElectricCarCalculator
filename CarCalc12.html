@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electric Car Calculator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: auto;
+            background-color: #f4f4f4;
+        }
+
+        h2, h3 {
+            text-align: center;
+            color: #333;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            background-color: #fff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .slider-container span {
+            margin-right: 10px;
+            width: 220px;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-left: 10px;
+        }
+
+        select {
+            padding: 5px;
+            margin: 10px 0;
+            width: 100%;
+            font-size: 1em;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        .results {
+            margin-top: 20px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        canvas {
+            width: 100% !important;
+            max-width: 600px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>Electric Car ROI Calculator</h2>
+
+<div class="slider-container">
+    <span>Cost of Electric Car:</span>
+    <input type="range" id="carCost" min="10000" max="150000" step="1000" value="30000">
+    <span id="carCostOutput"></span>
+</div>
+
+<div class="slider-container">
+    <span>Cost of Off-Peak Electricity (¢/kWh):</span>
+    <input type="range" id="electricityCost" min="3" max="13" step="0.1" value="5">
+    <span id="electricityCostOutput"></span>
+</div>
+
+<label for="carModel">Model of Car:</label>
+<select id="carModel">
+    <option value="240">Tesla Model 3</option>
+    <option value="265">Tesla Model Y</option>
+    <option value="315">Tesla Model X</option>
+    <option value="300">Tesla Model S</option>
+</select>
+
+<div class="slider-container">
+    <span>Miles Driven per Year:</span>
+    <input type="range" id="milesDriven" min="5000" max="50000" step="500" value="30000">
+    <span id="milesDrivenOutput"></span>
+</div>
+
+<div class="slider-container">
+    <span>Gas Car MPG:</span>
+    <input type="range" id="mpg" min="10" max="50" step="1" value="25">
+    <span id="mpgOutput"></span>
+</div>
+
+<div class="slider-container">
+    <span>Cost of Gas ($/gallon):</span>
+    <input type="range" id="gasCost" min="1" max="6" step="0.1" value="3.8">
+    <span id="gasCostOutput"></span>
+</div>
+
+<div class="slider-container">
+    <span>Loan Term (months):</span>
+    <input type="range" id="loanMonths" min="48" max="72" step="12" value="60">
+    <span id="loanMonthsOutput"></span>
+</div>
+
+<div class="slider-container">
+    <span>Interest Rate (%):</span>
+    <input type="range" id="interestRate" min="0" max="12" step="0.1" value="6">
+    <span id="interestRateOutput"></span>
+</div>
+
+<button onclick="calculate()">Calculate</button>
+
+<div class="results">
+    <h3>Results</h3>
+    <p><strong>Car Payment per Month:</strong> <span id="monthlyPayment"></span></p>
+    <p><strong>Fuel Savings per Month:</strong> <span id="monthlySavings"></span></p>
+    <p><strong>Cost of Driving Electric Car per Year:</strong> <span id="yearlySavings"></span></p>
+    <p><strong>Savings at 10,000 miles:</strong> <span id="savings10k"></span></p>
+    <p><strong>Savings at 20,000 miles:</strong> <span id="savings20k"></span></p>
+    <p><strong>Savings at 40,000 miles:</strong> <span id="savings40k"></span></p>
+    <p><strong>Cost per 1,000 miles (Gas Car):</strong> <span id="costPer1kGas"></span></p>
+    <p><strong>Cost per 1,000 miles (Electric Car):</strong> <span id="costPer1kElectric"></span></p>
+    <p><strong>Years to Payback:</strong> <span id="yearsToPayback"></span></p>
+    <p><strong>ROI:</strong> <span id="roi"></span></p>
+
+    <canvas id="resultsChart"></canvas>
+</div>
+
+<script>
+    let chart;
+
+    function calculate() {
+        let carCost = parseFloat(document.getElementById('carCost').value);
+        let electricityCost = parseFloat(document.getElementById('electricityCost').value) / 100; // converting cents to dollars
+        let consumption = parseFloat(document.getElementById('carModel').value);
+        let milesDriven = parseFloat(document.getElementById('milesDriven').value);
+        let mpg = parseFloat(document.getElementById('mpg').value);
+        let gasCost = parseFloat(document.getElementById('gasCost').value);
+
+        let yearlyElectricityCost = (milesDriven * consumption / 1000) * electricityCost;
+        let yearlyGasCost = (milesDriven / mpg) * gasCost;
+        let yearlySavings = yearlyGasCost - yearlyElectricityCost;
+
+        let savings10k = 10000 / milesDriven * yearlySavings;
+        let savings20k = 20000 / milesDriven * yearlySavings;
+        let savings40k = 40000 / milesDriven * yearlySavings;
+
+        let costPer1kGas = (1000 / mpg) * gasCost;
+        let costPer1kElectric = (1000 * consumption / 1000) * electricityCost;
+
+        let roi = (carCost / yearlySavings);
+        let yearsToPayback = roi;
+
+        document.getElementById('yearlySavings').textContent = '$' + yearlySavings.toFixed(2);
+        document.getElementById('savings10k').textContent = '$' + savings10k.toFixed(2);
+        document.getElementById('savings20k').textContent = '$' + savings20k.toFixed(2);
+        document.getElementById('savings40k').textContent = '$' + savings40k.toFixed(2);
+        document.getElementById('costPer1kGas').textContent = '$' + costPer1kGas.toFixed(2);
+        document.getElementById('costPer1kElectric').textContent = '$' + costPer1kElectric.toFixed(2);
+        document.getElementById('yearsToPayback').textContent = yearsToPayback.toFixed(2) + ' years';
+        document.getElementById('roi').textContent = (roi * 100).toFixed(2) + '%';
+
+        // Calculating Loan
+        let loanMonths = parseFloat(document.getElementById('loanMonths').value);
+        let interestRate = parseFloat(document.getElementById('interestRate').value) / 100 / 12; // converting annual rate to monthly and percentage to decimal
+        let monthlyPayment = carCost * interestRate / (1 - Math.pow(1 + interestRate, -loanMonths));
+
+        document.getElementById('monthlyPayment').textContent = '$' + monthlyPayment.toFixed(2);
+        document.getElementById('monthlySavings').textContent = '$' + (yearlySavings / 12).toFixed(2);
+
+        updateChart([yearlyGasCost, yearlyElectricityCost], ['Gas Car', 'Electric Car']);
+    }
+
+    function updateChart(data, labels) {
+        if (chart) {
+            chart.destroy();
+        }
+
+        const ctx = document.getElementById('resultsChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cost per Year',
+                    data: data,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(54, 162, 235, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Update output for each slider
+    function updateOutput(slider, output) {
+        document.getElementById(output).textContent = '$' + parseFloat(slider.value).toLocaleString();
+    }
+
+    document.getElementById('carCost').addEventListener('input', function() {
+        updateOutput(this, 'carCostOutput');
+    });
+
+    document.getElementById('electricityCost').addEventListener('input', function() {
+        updateOutput(this, 'electricityCostOutput');
+        this.nextElementSibling.textContent += '¢'; // Add cent symbol
+    });
+
+    document.getElementById('milesDriven').addEventListener('input', function() {
+        updateOutput(this, 'milesDrivenOutput');
+    });
+
+    document.getElementById('mpg').addEventListener('input', function() {
+        updateOutput(this, 'mpgOutput');
+    });
+
+    document.getElementById('gasCost').addEventListener('input', function() {
+        updateOutput(this, 'gasCostOutput');
+    });
+
+    document.getElementById('loanMonths').addEventListener('input', function() {
+        document.getElementById('loanMonthsOutput').textContent = this.value + ' months';
+    });
+
+    document.getElementById('interestRate').addEventListener('input', function() {
+        document.getElementById('interestRateOutput').textContent = this.value + '%';
+    });
+
+    // Initial value set for sliders
+    updateOutput(document.getElementById('carCost'), 'carCostOutput');
+    updateOutput(document.getElementById('electricityCost'), 'electricityCostOutput');
+    document.getElementById('electricityCostOutput').textContent += '¢'; // Add cent symbol
+    updateOutput(document.getElementById('milesDriven'), 'milesDrivenOutput');
+    updateOutput(document.getElementById('mpg'), 'mpgOutput');
+    updateOutput(document.getElementById('gasCost'), 'gasCostOutput');
+    document.getElementById('loanMonthsOutput').textContent = document.getElementById('loanMonths').value + ' months';
+    document.getElementById('interestRateOutput').textContent = document.getElementById('interestRate').value + '%';
+</script>
+
+</body>
+</html>
