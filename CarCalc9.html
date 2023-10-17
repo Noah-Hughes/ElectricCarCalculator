@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electric Car ROI Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h2, h3 {
+            color: #333;
+        }
+
+        form, #results {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        input[type="submit"] {
+            background-color: #007BFF;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
+
+        output {
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        span {
+            font-weight: bold;
+            color: #007BFF;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            width: 25px;
+        }
+
+        input[type=range]::-moz-range-thumb {
+            width: 25px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>Electric Car Calculator</h2>
+
+<form id="calculatorForm">
+    <label for="carCost">Cost of the Electric Car:</label>
+    <input type="range" id="carCost" min="10000" max="100000" value="30000" step="500">
+    <output id="carCostOutput">$30,000</output><br><br>
+
+    <label for="electricityCost">Cost of Off-Peak Electricity:</label>
+    <input type="range" id="electricityCost" min="3" max="13" value="5" step="0.1">
+    <output id="electricityCostOutput">5¢</output><br><br>
+
+    <label for="model">Model of Car:</label>
+    <select id="model">
+        <option value="240">Tesla Model 3</option>
+        <option value="265">Tesla Model Y</option>
+        <option value="315">Tesla Model X</option>
+        <option value="300">Tesla Model S</option>
+    </select><br><br>
+
+    <label for="mpg">Gasoline Car Efficiency (MPG):</label>
+    <input type="range" id="mpg" min="10" max="50" value="25" step="1">
+    <output id="mpgOutput">25</output><br><br>
+
+    <label for="milesDriven">Miles Driven:</label>
+    <input type="range" id="milesDriven" min="100" max="50000" value="30000" step="100">
+    <output id="milesDrivenOutput">30,000</output>
+    <select id="milesType">
+        <option value="year">Year</option>
+        <option value="month">Month</option>
+    </select><br><br>
+
+    <label for="gasCost">Cost of Gas:</label>
+    <input type="range" id="gasCost" min="1" max="10" value="3.8" step="0.1">
+    <output id="gasCostOutput">$3.8</output><br><br>
+
+    <input type="submit" value="Calculate">
+</form>
+
+<h3>Results</h3>
+<div id="results">
+    Cost/Savings per Year: <span id="yearlySavings">$0</span><br>
+    Savings at 10k miles: <span id="savings10k">$0</span><br>
+    Savings at 20k miles: <span id="savings20k">$0</span><br>
+    Savings at 40k miles: <span id="savings40k">$0</span><br>
+    Cost per 1,000 miles (Gas Car): <span id="costPer1kGas">$0</span><br>
+    Cost per 1,000 miles (Electric Car): <span id="costPer1kElectric">$0</span><br>
+    Years to Payback: <span id="yearsToPayback">0</span><br>
+    ROI: <span id="roi">0%</span>
+</div>
+<canvas id="resultsChart" width="400" height="200"></canvas>
+
+<script>
+    let chart;
+
+    document.querySelectorAll("input[type='range']").forEach(function (slider) {
+        slider.addEventListener('input', function () {
+            let formattedValue = slider.value;
+            switch (slider.id) {
+                case 'carCost':
+                    formattedValue = '$' + parseInt(slider.value).toLocaleString();
+                    break;
+                case 'electricityCost':
+                    formattedValue = slider.value + '¢';
+                    break;
+                case 'gasCost':
+                    formattedValue = '$' + slider.value;
+                    break;
+                default:
+                    formattedValue = slider.value;
+                    break;
+            }
+            document.getElementById(slider.id + 'Output').textContent = formattedValue;
+        });
+    });
+
+    document.getElementById('calculatorForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        // Fetch the input values
+        let carCost = parseFloat(document.getElementById('carCost').value);
+        let electricityCost = parseFloat(document.getElementById('electricityCost').value) / 100; // Convert cents to dollars
+        let consumption = parseFloat(document.getElementById('model').value);
+        let mpg = parseFloat(document.getElementById('mpg').value);
+        let milesDriven = parseFloat(document.getElementById('milesDriven').value);
+        if (document.getElementById('milesType').value === "month") {
+            milesDriven *= 12;
+        }
+        let gasCost = parseFloat(document.getElementById('gasCost').value);
+
+        let yearlyElectricityCost = (milesDriven * consumption / 1000) * electricityCost; // kWH * $/kWH
+        let yearlyGasCost = (milesDriven / mpg) * gasCost;
+
+        let yearlySavingsValue = yearlyGasCost - yearlyElectricityCost;
+        document.getElementById('yearlySavings').textContent = '$' + yearlySavingsValue.toFixed(2);
+
+        let savingsAt10k = yearlySavingsValue / milesDriven * 10000;
+        document.getElementById('savings10k').textContent = '$' + savingsAt10k.toFixed(2);
+
+        let savingsAt20k = yearlySavingsValue / milesDriven * 20000;
+        document.getElementById('savings20k').textContent = '$' + savingsAt20k.toFixed(2);
+
+        let savingsAt40k = yearlySavingsValue / milesDriven * 40000;
+        document.getElementById('savings40k').textContent = '$' + savingsAt40k.toFixed(2);
+
+        let costPer1kGas = gasCost * (1000 / mpg);
+        document.getElementById('costPer1kGas').textContent = '$' + costPer1kGas.toFixed(2);
+
+        let costPer1kElectric = electricityCost * (consumption * 1000 / 1000); // kWH * $/kWH for 1000 miles
+        document.getElementById('costPer1kElectric').textContent = '$' + costPer1kElectric.toFixed(2);
+
+        let yearsToPaybackValue = carCost / yearlySavingsValue;
+        document.getElementById('yearsToPayback').textContent = yearsToPaybackValue.toFixed(2);
+
+        let roiValue = (yearlySavingsValue / carCost) * 100;
+        document.getElementById('roi').textContent = roiValue.toFixed(2) + "%";
+
+        // Update or Create Chart
+        if (chart) {
+            chart.data.datasets[0].data = [yearlySavingsValue, savingsAt10k, savingsAt20k, savingsAt40k];
+            chart.update();
+        } else {
+            let ctx = document.getElementById('resultsChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Yearly Savings', '10k Savings', '20k Savings', '40k Savings'],
+                    datasets: [{
+                        label: 'Savings ($)',
+                        data: [yearlySavingsValue, savingsAt10k, savingsAt20k, savingsAt40k],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.2)',
+                            'rgba(54, 162, 235, 0.2)',
+                            'rgba(255, 206, 86, 0.2)',
+                            'rgba(75, 192, 192, 0.2)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)'
+                        ],
+                        borderWidth: 1,
+                        barPercentage: 0.6,
+                        categoryPercentage: 0.6
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+
+</body>
+
+</html>
+
